@@ -11,11 +11,11 @@ import (
 )
 
 func init() {
-	planCmd.Flags().StringVarP(&targetFile, "file", "f", "./db.yaml", "The path to export the state to")
+	exportCmd.Flags().StringVarP(&exportFile, "file", "f", "./db.yaml", "The path to export the state to")
 	rootCmd.AddCommand(exportCmd)
 }
 
-var targetFile string
+var exportFile string
 
 var exportCmd = &cobra.Command{
 	Use:   "export",
@@ -30,7 +30,7 @@ var exportCmd = &cobra.Command{
 		state := db.GetState()
 
 		request := &parser.Request{Namespaces: state.Database.Namespaces}
-		if parser.ExportYAML(targetFile, request) != nil {
+		if parser.ExportYAML(exportFile, request) != nil {
 			return err
 		}
 

@@ -9,14 +9,17 @@ import (
 )
 
 func init() {
+	planCmd.Flags().StringVarP(&planFile, "file", "f", "./db.yaml", "The path to the state to plan")
 	rootCmd.AddCommand(planCmd)
 }
+
+var planFile string
 
 var planCmd = &cobra.Command{
 	Use:   "plan",
 	Short: "Plan the state",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		request, err := parser.LoadYAML("v2.yaml")
+		request, err := parser.LoadYAML(planFile)
 		if err != nil {
 			return err
 		}
