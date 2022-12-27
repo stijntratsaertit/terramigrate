@@ -1,19 +1,25 @@
-package database
+package objects
 
 import (
 	"fmt"
 	"strings"
 )
 
-type DatabaseObject interface {
-	String() string
+type Database struct {
+	Name       string       `yaml:"name"`
+	Namespaces []*Namespace `yaml:"namespaces"`
+}
+
+type Namespace struct {
+	Name   string   `yaml:"name"`
+	Tables []*Table `yaml:"tables"`
 }
 
 type Table struct {
-	Name        string
-	Columns     []*Column
-	Constraints []*Constraint
-	Indices     []*Index
+	Name        string        `yaml:"name"`
+	Columns     []*Column     `yaml:"columns"`
+	Constraints []*Constraint `yaml:"constraints"`
+	Indices     []*Index      `yaml:"indices"`
 }
 
 func (t *Table) String() string {
@@ -21,11 +27,11 @@ func (t *Table) String() string {
 }
 
 type Column struct {
-	Name      string
-	Type      string
-	MaxLength int
-	Nullable  bool
-	Default   string
+	Name      string `yaml:"name"`
+	Type      string `yaml:"type"`
+	MaxLength int    `yaml:"max_length"`
+	Nullable  bool   `yaml:"nullable"`
+	Default   string `yaml:"default"`
 }
 
 func (c *Column) String() string {
@@ -45,7 +51,7 @@ var (
 	ContraintTypeUnknown    ConstraintType = ""
 )
 
-func getContraintTypeFromCode(code string) ConstraintType {
+func GetContraintTypeFromCode(code string) ConstraintType {
 	switch code {
 	case "c":
 		return ContraintTypeCheck
@@ -76,7 +82,7 @@ var (
 	ContraintActionUnknown    ContraintAction = ""
 )
 
-func getContraintActionFromCode(code string) ContraintAction {
+func GetContraintActionFromCode(code string) ContraintAction {
 	switch code {
 	case "a":
 		return ContraintActionNoAction

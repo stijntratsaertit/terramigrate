@@ -35,7 +35,6 @@ func GetDatabase(params *ConnectionParams) (*Database, error) {
 
 	d := &Database{
 		Name:       params.Name,
-		Schema:     "public",
 		connection: &connection{con},
 	}
 	d.LoadState()

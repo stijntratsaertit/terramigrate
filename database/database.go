@@ -3,14 +3,14 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"stijntratsaertit/terramigrate/objects"
 	"strings"
 
 	"github.com/lib/pq"
 )
 
 type Database struct {
-	Name   string
-	Schema string
+	Name string
 
 	connection *connection
 	state      *state
@@ -21,45 +21,72 @@ func (db *Database) GetState() *state {
 }
 
 func (db *Database) LoadState() error {
-	tables, err := db.GetTables()
+	namespaces, err := db.GetNamespaces()
 	if err != nil {
-		return fmt.Errorf("could not load tables into state: %v", err)
+		return fmt.Errorf("could not load state: %v", err)
 	}
 
-	db.state = &state{
-		Tables: tables,
-	}
+	db.state = &state{Database: &objects.Database{Name: db.Name, Namespaces: namespaces}}
 	return nil
 }
 
-func (db *Database) GetTables() ([]*Table, error) {
+func (db *Database) GetNamespaces() ([]*objects.Namespace, error) {
 	q := `
-		SELECT table_name
-		FROM information_schema.tables
-		WHERE table_schema = $1;
+		SELECT schema_name
+		FROM information_schema.schemata
+		WHERE schema_name NOT LIKE 'pg_%' AND schema_name NOT LIKE 'information_schema';
 	`
-	rows, err := db.connection.Query(q, db.Schema)
+
+	rows, err := db.connection.Query(q)
+	if err != nil {
+		return nil, fmt.Errorf("could not get namespaces: %v", err)
+	}
+	defer rows.Close()
+
+	namespaces := []*objects.Namespace{}
+	for rows.Next() {
+		namespace := &objects.Namespace{}
+		rows.Scan(&namespace.Name)
+
+		tables, err := db.GetTables(namespace.Name)
+		if err != nil {
+			return nil, fmt.Errorf("could not get tables for namespace %s: %v", namespace.Name, err)
+		}
+
+		namespace.Tables = tables
+		namespaces = append(namespaces, namespace)
+	}
+	return namespaces, nil
+}
+
+func (db *Database) GetTables(namespace string) ([]*objects.Table, error) {
+	q := `
+		SELECT tablename
+		FROM pg_tables
+		WHERE schemaname = $1;
+	`
+	rows, err := db.connection.Query(q, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not get tables: %v", err)
 	}
 	defer rows.Close()
 
-	tables := []*Table{}
+	tables := []*objects.Table{}
 	for rows.Next() {
-		table := &Table{}
+		table := &objects.Table{}
 
 		rows.Scan(&table.Name)
-		columns, err := db.getColumns(table.Name)
+		columns, err := db.getColumns(namespace, table.Name)
 		if err != nil {
 			return nil, fmt.Errorf("could not get columns for table %s: %v", table.Name, err)
 		}
 
-		constraints, err := db.getConstraints(table.Name)
+		constraints, err := db.getConstraints(namespace, table.Name)
 		if err != nil {
 			return nil, fmt.Errorf("could not get constraints for table %s: %v", table.Name, err)
 		}
 
-		indices, err := db.getIndices(table.Name)
+		indices, err := db.getIndices(namespace, table.Name)
 		if err != nil {
 			return nil, fmt.Errorf("could not get indices for table %s: %v", table.Name, err)
 		}
@@ -72,18 +99,18 @@ func (db *Database) GetTables() ([]*Table, error) {
 	return tables, nil
 }
 
-func (db *Database) getColumns(tableName string) ([]*Column, error) {
+func (db *Database) getColumns(namespace, table string) ([]*objects.Column, error) {
 	q := `
 		SELECT column_name, data_type, column_default, is_nullable, character_maximum_length
 		FROM information_schema.columns
 		WHERE table_schema = $1 AND table_name = $2;
 	`
-	rows, err := db.connection.Query(q, db.Schema, tableName)
+	rows, err := db.connection.Query(q, namespace, table)
 	if err != nil {
-		return nil, fmt.Errorf("could not get columns for table %s: %v", tableName, err)
+		return nil, fmt.Errorf("could not get columns for table %s: %v", table, err)
 	}
 
-	columns := []*Column{}
+	columns := []*objects.Column{}
 	for rows.Next() {
 		var (
 			columnName, dataType, columnDefault, isNullable string
@@ -91,7 +118,7 @@ func (db *Database) getColumns(tableName string) ([]*Column, error) {
 		)
 
 		rows.Scan(&columnName, &dataType, &columnDefault, &isNullable, &characterMaximumLength)
-		columns = append(columns, &Column{
+		columns = append(columns, &objects.Column{
 			Name:      columnName,
 			Type:      strings.ToUpper(dataType),
 			Default:   columnDefault,
@@ -103,7 +130,7 @@ func (db *Database) getColumns(tableName string) ([]*Column, error) {
 	return columns, nil
 }
 
-func (db *Database) getConstraints(tableName string) ([]*Constraint, error) {
+func (db *Database) getConstraints(namespace, tableName string) ([]*objects.Constraint, error) {
 	q := `
 		SELECT
 			conname AS contraint_name,
@@ -132,12 +159,12 @@ func (db *Database) getConstraints(tableName string) ([]*Constraint, error) {
 		WHERE nspname = $1 AND rel2.relname = $2;
 	`
 
-	rows, err := db.connection.Query(q, db.Schema, tableName)
+	rows, err := db.connection.Query(q, namespace, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("could not get constraints for table %s: %v", tableName, err)
 	}
 
-	constraints := []*Constraint{}
+	constraints := []*objects.Constraint{}
 	for rows.Next() {
 		var (
 			cName, cType, cUpdate, cDelete, cRefTable string
@@ -145,35 +172,35 @@ func (db *Database) getConstraints(tableName string) ([]*Constraint, error) {
 		)
 
 		rows.Scan(&cName, &cType, &cUpdate, &cDelete, (*pq.StringArray)(&cSourceColumns), &cRefTable, (*pq.StringArray)(&cRefColumns))
-		constraints = append(constraints, &Constraint{
+		constraints = append(constraints, &objects.Constraint{
 			Name:    cName,
-			Type:    getContraintTypeFromCode(cType),
+			Type:    objects.GetContraintTypeFromCode(cType),
 			Targets: cSourceColumns,
-			Reference: &ConstraintReference{
+			Reference: &objects.ConstraintReference{
 				Table:   cRefTable,
 				Columns: cRefColumns,
 			},
-			OnDelete: getContraintActionFromCode(cDelete),
-			OnUpdate: getContraintActionFromCode(cUpdate),
+			OnDelete: objects.GetContraintActionFromCode(cDelete),
+			OnUpdate: objects.GetContraintActionFromCode(cUpdate),
 		})
 	}
 
 	return constraints, nil
 }
 
-func (db *Database) getIndices(tableName string) ([]*Index, error) {
+func (db *Database) getIndices(namespace, tableName string) ([]*objects.Index, error) {
 	q := `
 		SELECT indexdef
 		FROM pg_indexes
 		WHERE schemaname = $1 AND tablename = $2;
 	`
 
-	rows, err := db.connection.Query(q, db.Schema, tableName)
+	rows, err := db.connection.Query(q, namespace, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("could not get indices for table %s: %v", tableName, err)
 	}
 
-	indices := []*Index{}
+	indices := []*objects.Index{}
 	for rows.Next() {
 		var definition string
 		rows.Scan(&definition)
