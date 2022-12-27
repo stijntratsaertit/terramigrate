@@ -100,12 +100,12 @@ func GetContraintActionFromCode(code string) ContraintAction {
 }
 
 type Constraint struct {
-	Name      string
-	Type      ConstraintType
-	Targets   []string
-	Reference *ConstraintReference
-	OnDelete  ContraintAction
-	OnUpdate  ContraintAction
+	Name      string               `yaml:"name"`
+	Type      ConstraintType       `yaml:"type"`
+	Targets   []string             `yaml:"targets"`
+	Reference *ConstraintReference `yaml:"reference"`
+	OnDelete  ContraintAction      `yaml:"on_delete"`
+	OnUpdate  ContraintAction      `yaml:"on_update"`
 }
 
 func (c *Constraint) String() string {
@@ -122,10 +122,10 @@ var (
 )
 
 type Index struct {
-	Name      string
-	Unique    bool
-	Algorithm IndexAlgorithm
-	Columns   []string
+	Name      string         `yaml:"name"`
+	Unique    bool           `yaml:"unique"`
+	Algorithm IndexAlgorithm `yaml:"algorithm"`
+	Columns   []string       `yaml:"columns"`
 }
 
 func (i *Index) String() string {
