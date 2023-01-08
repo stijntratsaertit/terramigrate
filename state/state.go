@@ -1,15 +1,15 @@
-package database
+package state
 
 import (
 	"fmt"
 	"stijntratsaertit/terramigrate/objects"
 )
 
-type state struct {
+type State struct {
 	Database *objects.Database
 }
 
-func (s *state) String() string {
+func (s *State) String() string {
 	result := fmt.Sprintf("database: %v\n", s.Database.Name)
 	if s.Database.Namespaces != nil {
 		result += "namespaces:\n"

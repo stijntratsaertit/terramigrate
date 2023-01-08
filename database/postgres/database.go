@@ -1,36 +1,62 @@
-package database
+package postgres
 
 import (
 	"database/sql"
 	"fmt"
+	"stijntratsaertit/terramigrate/config"
+	"stijntratsaertit/terramigrate/database/adapter"
 	"stijntratsaertit/terramigrate/objects"
+	"stijntratsaertit/terramigrate/state"
 	"strings"
 
 	"github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 )
 
-type Database struct {
+type database struct {
 	Name string
 
-	connection *connection
-	state      *state
+	connection *sql.DB
+	state      *state.State
 }
 
-func (db *Database) GetState() *state {
+func GetDatabase(params *config.DatabaseConnectionParams) (adapter.Adapter, error) {
+	log.Debug("connecting to database")
+	conURL := fmt.Sprintf("postgresql://%v:%v@%v:%v/%v?connect_timeout=1&sslmode=disable", params.User, params.Password, params.Host, params.Port, params.Name)
+	con, err := sql.Open("postgres", conURL)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to database: %v", err)
+	}
+
+	if err := con.Ping(); err != nil {
+		return nil, fmt.Errorf("could not connect to database: %v", err)
+	}
+	log.Debug("connected to database")
+
+	db := &database{
+		Name:       params.Name,
+		connection: con,
+	}
+	db.LoadState()
+
+	return db, nil
+}
+
+func (db *database) GetState() *state.State {
 	return db.state
 }
 
-func (db *Database) LoadState() error {
+func (db *database) LoadState() error {
 	namespaces, err := db.GetNamespaces()
 	if err != nil {
 		return fmt.Errorf("could not load state: %v", err)
 	}
 
-	db.state = &state{Database: &objects.Database{Name: db.Name, Namespaces: namespaces}}
+	db.state = &state.State{Database: &objects.Database{Name: db.Name, Namespaces: namespaces}}
 	return nil
 }
 
-func (db *Database) GetNamespaces() ([]*objects.Namespace, error) {
+func (db *database) GetNamespaces() ([]*objects.Namespace, error) {
 	q := `
 		SELECT schema_name
 		FROM information_schema.schemata
@@ -59,7 +85,7 @@ func (db *Database) GetNamespaces() ([]*objects.Namespace, error) {
 	return namespaces, nil
 }
 
-func (db *Database) GetTables(namespace string) ([]*objects.Table, error) {
+func (db *database) GetTables(namespace string) ([]*objects.Table, error) {
 	q := `
 		SELECT tablename
 		FROM pg_tables
@@ -99,7 +125,7 @@ func (db *Database) GetTables(namespace string) ([]*objects.Table, error) {
 	return tables, nil
 }
 
-func (db *Database) getColumns(namespace, table string) ([]*objects.Column, error) {
+func (db *database) getColumns(namespace, table string) ([]*objects.Column, error) {
 	q := `
 		SELECT column_name, data_type, column_default, is_nullable, character_maximum_length
 		FROM information_schema.columns
@@ -130,7 +156,7 @@ func (db *Database) getColumns(namespace, table string) ([]*objects.Column, erro
 	return columns, nil
 }
 
-func (db *Database) getConstraints(namespace, tableName string) ([]*objects.Constraint, error) {
+func (db *database) getConstraints(namespace, tableName string) ([]*objects.Constraint, error) {
 	q := `
 		SELECT
 			conname AS contraint_name,
@@ -188,7 +214,7 @@ func (db *Database) getConstraints(namespace, tableName string) ([]*objects.Cons
 	return constraints, nil
 }
 
-func (db *Database) getIndices(namespace, tableName string) ([]*objects.Index, error) {
+func (db *database) getIndices(namespace, tableName string) ([]*objects.Index, error) {
 	q := `
 		SELECT indexdef
 		FROM pg_indexes

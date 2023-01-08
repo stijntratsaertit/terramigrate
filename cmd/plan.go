@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"stijntratsaertit/terramigrate/parser"
+	"stijntratsaertit/terramigrate/state"
 
 	"github.com/spf13/cobra"
 
@@ -18,14 +18,16 @@ var planFile string
 var planCmd = &cobra.Command{
 	Use:   "plan",
 	Short: "Plan the state",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		request, err := parser.LoadYAML(planFile)
-		if err != nil {
-			return err
-		}
+	RunE:  plan,
+}
 
-		log.Infof("request: %+v", request)
+func plan(cmd *cobra.Command, args []string) error {
+	request, err := state.LoadYAML(planFile)
+	if err != nil {
+		return err
+	}
 
-		return nil
-	},
+	log.Infof("request: %+v", request)
+
+	return nil
 }

@@ -1,4 +1,4 @@
-package parser
+package state
 
 import (
 	"fmt"
@@ -8,11 +8,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type Request struct {
+type request struct {
 	Namespaces []*objects.Namespace `yaml:"namespaces"`
 }
 
-func LoadYAML(path string) (*Request, error) {
+func LoadYAML(path string) (*request, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("file %s does not exist", path)
 	}
@@ -22,17 +22,17 @@ func LoadYAML(path string) (*Request, error) {
 		return nil, fmt.Errorf("could not read file %s: %v", path, err)
 	}
 
-	request := &Request{}
-	err = yaml.Unmarshal(yamlFile, request)
+	req := &request{}
+	err = yaml.Unmarshal(yamlFile, req)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal yaml: %v", err)
 	}
 
-	return request, nil
+	return req, nil
 }
 
-func ExportYAML(path string, request *Request) error {
-	yamlFile, err := yaml.Marshal(request)
+func (s *State) ExportYAML(path string) error {
+	yamlFile, err := yaml.Marshal(request{Namespaces: s.Database.Namespaces})
 	if err != nil {
 		return fmt.Errorf("could not marshal yaml: %v", err)
 	}

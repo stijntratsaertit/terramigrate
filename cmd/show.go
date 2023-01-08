@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"stijntratsaertit/terramigrate/config"
-	"stijntratsaertit/terramigrate/database"
+	"stijntratsaertit/terramigrate/database/generic"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -16,16 +16,18 @@ func init() {
 var showCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show the state",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := database.GetDatabase(config.Get().DatabaseConnectionParams())
-		if err != nil {
-			log.Warningf("could not connect to database: %v", err)
-			return err
-		}
+	RunE:  show,
+}
 
-		state := db.GetState()
-		fmt.Print(state.String())
+func show(cmd *cobra.Command, args []string) error {
+	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
+	if err != nil {
+		log.Warningf("could not connect to database: %v", err)
+		return err
+	}
 
-		return nil
-	},
+	state := db.GetState()
+	fmt.Print(state.String())
+
+	return nil
 }

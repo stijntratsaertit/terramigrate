@@ -1,54 +1,29 @@
 package config
 
 import (
-	"os"
-	"stijntratsaertit/terramigrate/database"
-	"strconv"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
-var (
-	databaseHost     = os.Getenv("DATABASE_HOST")
-	databasePort     = os.Getenv("DATABASE_PORT")
-	databaseUser     = os.Getenv("DATABASE_USER")
-	databasePassword = os.Getenv("DATABASE_PASSWORD")
-	databaseName     = os.Getenv("DATABASE_NAME")
-)
-
-type Config struct {
-	databaseHost     string
-	databasePort     int
-	databaseUser     string
-	databasePassword string
-	databaseName     string
+type DatabaseConnectionParams struct {
+	Host     string `mapstructure:"DATABASE_HOST"`
+	Port     int    `mapstructure:"DATABASE_PORT"`
+	User     string `mapstructure:"DATABASE_USER"`
+	Password string `mapstructure:"DATABASE_PASSWORD"`
+	Name     string `mapstructure:"DATABASE_NAME"`
 }
 
-func Get() *Config {
-	port := 5432
-	if databasePort != "" {
-		var err error
-		port, err = strconv.Atoi(databasePort)
-		if err != nil {
-			log.Errorf("could not parse database port: %v", err)
-		}
+func GetDatabaseConnectionParams() (dbParams *DatabaseConnectionParams, err error) {
+	viper.AddConfigPath(".")
+	viper.SetConfigName(".env")
+	viper.SetConfigType("env")
+	viper.SetDefault("DATABASE_PORT", "5432")
+	viper.AutomaticEnv()
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		return
 	}
 
-	return &Config{
-		databaseHost:     databaseHost,
-		databasePort:     port,
-		databaseUser:     databaseUser,
-		databasePassword: databasePassword,
-		databaseName:     databaseName,
-	}
-}
-
-func (c *Config) DatabaseConnectionParams() *database.ConnectionParams {
-	return &database.ConnectionParams{
-		Host:     c.databaseHost,
-		Port:     c.databasePort,
-		User:     c.databaseUser,
-		Password: c.databasePassword,
-		Name:     c.databaseName,
-	}
+	err = viper.Unmarshal(&dbParams)
+	return
 }

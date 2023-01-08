@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"stijntratsaertit/terramigrate/config"
-	"stijntratsaertit/terramigrate/database"
-	"stijntratsaertit/terramigrate/parser"
+	"stijntratsaertit/terramigrate/database/generic"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -20,20 +19,19 @@ var exportFile string
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export the state",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := database.GetDatabase(config.Get().DatabaseConnectionParams())
-		if err != nil {
-			log.Warningf("could not connect to database: %v", err)
-			return err
-		}
+	RunE:  export,
+}
 
-		state := db.GetState()
+func export(cmd *cobra.Command, args []string) error {
+	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
+	if err != nil {
+		log.Warningf("could not connect to database: %v", err)
+		return err
+	}
 
-		request := &parser.Request{Namespaces: state.Database.Namespaces}
-		if parser.ExportYAML(exportFile, request) != nil {
-			return err
-		}
+	if db.GetState().ExportYAML(exportFile) != nil {
+		return err
+	}
 
-		return nil
-	},
+	return nil
 }
