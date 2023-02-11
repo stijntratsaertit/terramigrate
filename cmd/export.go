@@ -22,16 +22,12 @@ var exportCmd = &cobra.Command{
 	RunE:  export,
 }
 
-func export(cmd *cobra.Command, args []string) error {
+func export(cmd *cobra.Command, args []string) (err error) {
 	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
 	if err != nil {
 		log.Warningf("could not connect to database: %v", err)
-		return err
+		return
 	}
 
-	if db.GetState().ExportYAML(exportFile) != nil {
-		return err
-	}
-
-	return nil
+	return db.GetState().ExportYAML(exportFile)
 }

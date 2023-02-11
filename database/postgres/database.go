@@ -139,17 +139,24 @@ func (db *database) getColumns(namespace, table string) ([]*objects.Column, erro
 	columns := []*objects.Column{}
 	for rows.Next() {
 		var (
-			columnName, dataType, columnDefault, isNullable string
-			characterMaximumLength                          sql.NullInt64
+			columnDefault                    *string = nil
+			columnDefaultRef                 sql.NullString
+			characterMaximumLengthRef        sql.NullInt64
+			columnName, dataType, isNullable string
 		)
 
-		rows.Scan(&columnName, &dataType, &columnDefault, &isNullable, &characterMaximumLength)
+		rows.Scan(&columnName, &dataType, &columnDefaultRef, &isNullable, &characterMaximumLengthRef)
+
+		if columnDefaultRef.Valid {
+			columnDefault = &columnDefaultRef.String
+		}
+
 		columns = append(columns, &objects.Column{
 			Name:      columnName,
 			Type:      strings.ToUpper(dataType),
 			Default:   columnDefault,
 			Nullable:  isNullable == "YES",
-			MaxLength: int(characterMaximumLength.Int64),
+			MaxLength: int(characterMaximumLengthRef.Int64),
 		})
 	}
 

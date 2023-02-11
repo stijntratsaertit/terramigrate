@@ -19,15 +19,15 @@ var showCmd = &cobra.Command{
 	RunE:  show,
 }
 
-func show(cmd *cobra.Command, args []string) error {
+func show(cmd *cobra.Command, args []string) (err error) {
 	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
 	if err != nil {
 		log.Warningf("could not connect to database: %v", err)
-		return err
+		return
 	}
 
 	state := db.GetState()
 	fmt.Print(state.String())
 
-	return nil
+	return
 }
