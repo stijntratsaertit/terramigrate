@@ -1,10 +1,5 @@
 package objects
 
-import (
-	"fmt"
-	"strings"
-)
-
 type Database struct {
 	Name       string       `yaml:"name"`
 	Namespaces []*Namespace `yaml:"namespaces"`
@@ -21,10 +16,6 @@ type Sequence struct {
 	Type string `yaml:"type"`
 }
 
-func (s *Sequence) String() string {
-	return fmt.Sprintf("%s (%s)", s.Name, s.Type)
-}
-
 type Table struct {
 	Name        string        `yaml:"name"`
 	Columns     []*Column     `yaml:"columns"`
@@ -32,59 +23,13 @@ type Table struct {
 	Indices     []*Index      `yaml:"indices"`
 }
 
-func (t *Table) Valid() error {
-	if t.Name == "" {
-		return fmt.Errorf("table has no name")
-	} else if len(t.Name) > 63 {
-		return fmt.Errorf("table name %s is too long", t.Name)
-	}
-
-	for _, c := range t.Columns {
-		err := c.Valid()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *Table) String() string {
-	return t.Name
-}
-
 type Column struct {
-	Name      string  `yaml:"name"`
-	Type      string  `yaml:"type"`
-	MaxLength int     `yaml:"max_length"`
-	Nullable  bool    `yaml:"nullable"`
-	Default   *string `yaml:"default"`
-}
-
-// Returns an error if the column is not valid
-func (c *Column) Valid() error {
-	if c.Name == "" {
-		return fmt.Errorf("column has no name")
-	}
-	if c.Type == "" {
-		return fmt.Errorf("column %s has no type", c.Name)
-	}
-	if strings.ToUpper(c.Type) == "VARCHAR" && c.MaxLength == 0 {
-		return fmt.Errorf("column %s is of type varchar but has no max length", c.Name)
-	}
-	if strings.ToUpper(c.Type) != "VARCHAR" && c.MaxLength > 0 {
-		return fmt.Errorf("column %s is of type %s but has a max length", c.Name, c.Type)
-	}
-	if !c.Nullable && c.Default == nil {
-		return fmt.Errorf("column %s is nullable and has no default value", c.Name)
-	}
-	return nil
-}
-
-func (c *Column) String() string {
-	if c.MaxLength > 0 {
-		return fmt.Sprintf("%s %s(%d)", c.Name, c.Type, c.MaxLength)
-	}
-	return fmt.Sprintf("%s %s", c.Name, c.Type)
+	Name         string  `yaml:"name"`
+	Type         string  `yaml:"type"`
+	MaxLength    int     `yaml:"max_length"`
+	Nullable     bool    `yaml:"nullable"`
+	Default      *string `yaml:"default"`
+	IsPrimaryKey bool    `yaml:"primary_key"`
 }
 
 type ConstraintType string
@@ -154,13 +99,6 @@ type Constraint struct {
 	OnUpdate  ContraintAction      `yaml:"on_update"`
 }
 
-func (c *Constraint) String() string {
-	if c.Type == ContraintTypeForeignKey {
-		return fmt.Sprintf("%s %s (%s) REFERENCES %s (%s) ON DELETE %s ON UPDATE %s", c.Name, c.Type, strings.Join(c.Targets, ", "), c.Reference.Table, strings.Join(c.Reference.Columns, ", "), c.OnDelete, c.OnUpdate)
-	}
-	return fmt.Sprintf("%s %s (%s)", c.Name, c.Type, strings.Join(c.Targets, ", "))
-}
-
 type IndexAlgorithm string
 
 var (
@@ -172,12 +110,4 @@ type Index struct {
 	Unique    bool           `yaml:"unique"`
 	Algorithm IndexAlgorithm `yaml:"algorithm"`
 	Columns   []string       `yaml:"columns"`
-}
-
-func (i *Index) String() string {
-	onCols := strings.Join(i.Columns, ", ")
-	if i.Unique {
-		return fmt.Sprintf("%s (UNIQUE) ON %s", i.Name, onCols)
-	}
-	return fmt.Sprintf("%s ON %s", i.Name, onCols)
 }
