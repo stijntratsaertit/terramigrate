@@ -22,7 +22,7 @@ var showCmd = &cobra.Command{
 func show(cmd *cobra.Command, args []string) (err error) {
 	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
 	if err != nil {
-		log.Warningf("could not connect to database: %v", err)
+		log.Errorf("could not connect to database: %v", err)
 		return
 	}
 

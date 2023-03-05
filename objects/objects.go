@@ -11,8 +11,18 @@ type Database struct {
 }
 
 type Namespace struct {
-	Name   string   `yaml:"name"`
-	Tables []*Table `yaml:"tables"`
+	Name      string      `yaml:"name"`
+	Tables    []*Table    `yaml:"tables"`
+	Sequences []*Sequence `yaml:"sequences"`
+}
+
+type Sequence struct {
+	Name string `yaml:"name"`
+	Type string `yaml:"type"`
+}
+
+func (s *Sequence) String() string {
+	return fmt.Sprintf("%s (%s)", s.Name, s.Type)
 }
 
 type Table struct {
@@ -22,16 +32,52 @@ type Table struct {
 	Indices     []*Index      `yaml:"indices"`
 }
 
+func (t *Table) Valid() error {
+	if t.Name == "" {
+		return fmt.Errorf("table has no name")
+	} else if len(t.Name) > 63 {
+		return fmt.Errorf("table name %s is too long", t.Name)
+	}
+
+	for _, c := range t.Columns {
+		err := c.Valid()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *Table) String() string {
 	return t.Name
 }
 
 type Column struct {
-	Name      string `yaml:"name"`
-	Type      string `yaml:"type"`
-	MaxLength int    `yaml:"max_length"`
-	Nullable  bool   `yaml:"nullable"`
-	Default   string `yaml:"default"`
+	Name      string  `yaml:"name"`
+	Type      string  `yaml:"type"`
+	MaxLength int     `yaml:"max_length"`
+	Nullable  bool    `yaml:"nullable"`
+	Default   *string `yaml:"default"`
+}
+
+// Returns an error if the column is not valid
+func (c *Column) Valid() error {
+	if c.Name == "" {
+		return fmt.Errorf("column has no name")
+	}
+	if c.Type == "" {
+		return fmt.Errorf("column %s has no type", c.Name)
+	}
+	if strings.ToUpper(c.Type) == "VARCHAR" && c.MaxLength == 0 {
+		return fmt.Errorf("column %s is of type varchar but has no max length", c.Name)
+	}
+	if strings.ToUpper(c.Type) != "VARCHAR" && c.MaxLength > 0 {
+		return fmt.Errorf("column %s is of type %s but has a max length", c.Name, c.Type)
+	}
+	if !c.Nullable && c.Default == nil {
+		return fmt.Errorf("column %s is nullable and has no default value", c.Name)
+	}
+	return nil
 }
 
 func (c *Column) String() string {

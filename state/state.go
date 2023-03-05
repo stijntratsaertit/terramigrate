@@ -37,6 +37,11 @@ func (s *State) String() string {
 					}
 				}
 			}
+
+			result += "    sequences:\n"
+			for _, sequence := range ns.Sequences {
+				result += fmt.Sprintf("      - name: %v\n", sequence.String())
+			}
 		}
 	}
 	return result
