@@ -37,9 +37,31 @@ func GetDatabase(params *config.DatabaseConnectionParams) (adapter.Adapter, erro
 		Name:       params.Name,
 		connection: con,
 	}
-	db.LoadState()
+	return db, db.LoadState()
+}
 
-	return db, nil
+func (db *database) ExecuteTransaction(migrator *state.Migrator) error {
+	tx, err := db.connection.Begin()
+	if err != nil {
+		return fmt.Errorf("could not start transaction: %v", err)
+	}
+
+	for _, query := range migrator.GetActions() {
+		if _, err := tx.Exec(query); err != nil {
+			if err := tx.Rollback(); err != nil {
+				log.Errorf("could not rollback transaction: %v", err)
+			}
+			return fmt.Errorf("could not execute query: %v", err)
+		} else {
+			log.Infof("executed query: %v", query)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %v", err)
+	}
+
+	return nil
 }
 
 func (db *database) GetState() *state.State {
@@ -47,7 +69,7 @@ func (db *database) GetState() *state.State {
 }
 
 func (db *database) LoadState() error {
-	namespaces, err := db.GetNamespaces()
+	namespaces, err := db.getNamespaces()
 	if err != nil {
 		return fmt.Errorf("could not load state: %v", err)
 	}
@@ -56,7 +78,7 @@ func (db *database) LoadState() error {
 	return nil
 }
 
-func (db *database) GetNamespaces() ([]*objects.Namespace, error) {
+func (db *database) getNamespaces() ([]*objects.Namespace, error) {
 	q := `
 		SELECT schema_name
 		FROM information_schema.schemata
@@ -76,10 +98,16 @@ func (db *database) GetNamespaces() ([]*objects.Namespace, error) {
 
 		tables, err := db.GetTables(namespace.Name)
 		if err != nil {
-			return nil, fmt.Errorf("could not get tables for namespace %s: %v", namespace.Name, err)
+			return nil, err
+		}
+
+		sequences, err := db.getSequences(namespace.Name)
+		if err != nil {
+			return nil, err
 		}
 
 		namespace.Tables = tables
+		namespace.Sequences = sequences
 		namespaces = append(namespaces, namespace)
 	}
 	return namespaces, nil
@@ -123,6 +151,28 @@ func (db *database) GetTables(namespace string) ([]*objects.Table, error) {
 		tables = append(tables, table)
 	}
 	return tables, nil
+}
+
+func (db *database) getSequences(namespace string) ([]*objects.Sequence, error) {
+	q := `
+		SELECT sequence_name, data_type
+		FROM information_schema.sequences
+		WHERE sequence_schema = $1;
+	`
+	rows, err := db.connection.Query(q, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("could not get sequences: %v", err)
+	}
+	defer rows.Close()
+
+	sequences := []*objects.Sequence{}
+	var seqName, seqType string
+
+	for rows.Next() {
+		rows.Scan(&seqName, &seqType)
+		sequences = append(sequences, &objects.Sequence{Name: seqName, Type: seqType})
+	}
+	return sequences, nil
 }
 
 func (db *database) getColumns(namespace, table string) ([]*objects.Column, error) {

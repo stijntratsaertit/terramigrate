@@ -10,21 +10,23 @@ import (
 )
 
 func init() {
-	planCmd.Flags().StringVar(&planFile, "file", "./db.yaml", "The path to the state to plan")
-	rootCmd.AddCommand(planCmd)
+	applyCmd.Flags().StringVar(&applyFile, "file", "./db.yaml", "The path to the state to apply")
+	applyCmd.Flags().BoolVar(&applyForce, "force", false, "The path to the state to apply")
+	rootCmd.AddCommand(applyCmd)
 }
 
 var (
-	planFile string
+	applyFile  string
+	applyForce bool
 )
 
-var planCmd = &cobra.Command{
-	Use:   "plan",
-	Short: "Plan the state",
-	RunE:  plan,
+var applyCmd = &cobra.Command{
+	Use:   "apply",
+	Short: "Apply the state",
+	RunE:  apply,
 }
 
-func plan(cmd *cobra.Command, args []string) (err error) {
+func apply(cmd *cobra.Command, args []string) (err error) {
 	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
 	if err != nil {
 		log.Errorf("could not connect to database: %v", err)
@@ -32,7 +34,7 @@ func plan(cmd *cobra.Command, args []string) (err error) {
 	}
 	s := db.GetState()
 
-	req, err := state.LoadYAML(planFile)
+	req, err := state.LoadYAML(applyFile)
 
 	migrators := state.Compare(req.Namespaces, s.Database.Namespaces)
 	if len(migrators) == 0 {
@@ -41,10 +43,9 @@ func plan(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for _, migrator := range migrators {
-		actions := migrator.GetActions()
-		log.Info(migrator.String())
-		for _, action := range actions {
-			log.Infof("Action: %s", action)
+		log.Infof("Difference found: %s", migrator.String())
+		if err := db.ExecuteTransaction(migrator); err != nil {
+			log.Error(err)
 		}
 	}
 	return
