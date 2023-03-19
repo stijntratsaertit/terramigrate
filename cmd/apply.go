@@ -26,27 +26,36 @@ var applyCmd = &cobra.Command{
 	RunE:  apply,
 }
 
-func apply(cmd *cobra.Command, args []string) (err error) {
+func apply(cmd *cobra.Command, args []string) error {
 	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
 	if err != nil {
 		log.Errorf("could not connect to database: %v", err)
-		return
+		return err
 	}
 	s := db.GetState()
 
 	req, err := state.LoadYAML(applyFile)
+	if err != nil {
+		return err
+	}
+
+	for _, namespace := range req.Namespaces {
+		if err := namespace.Valid(); err != nil {
+			return err
+		}
+	}
 
 	migrators := state.Compare(req.Namespaces, s.Database.Namespaces)
 	if len(migrators) == 0 {
-		log.Info("No differences found")
-		return
+		log.Info("no differences found")
+		return nil
 	}
 
 	for _, migrator := range migrators {
-		log.Infof("Difference found: %s", migrator.String())
+		log.Infof("difference found: %s", migrator.String())
 		if err := db.ExecuteTransaction(migrator); err != nil {
-			log.Error(err)
+			return err
 		}
 	}
-	return
+	return nil
 }

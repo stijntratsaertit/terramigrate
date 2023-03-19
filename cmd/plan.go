@@ -24,28 +24,37 @@ var planCmd = &cobra.Command{
 	RunE:  plan,
 }
 
-func plan(cmd *cobra.Command, args []string) (err error) {
+func plan(cmd *cobra.Command, args []string) error {
 	db, err := generic.GetDatabaseAdapter(viper.GetString("adapter"))
 	if err != nil {
 		log.Errorf("could not connect to database: %v", err)
-		return
+		return err
 	}
 	s := db.GetState()
 
 	req, err := state.LoadYAML(planFile)
+	if err != nil {
+		return err
+	}
+
+	for _, namespace := range req.Namespaces {
+		if err := namespace.Valid(); err != nil {
+			return err
+		}
+	}
 
 	migrators := state.Compare(req.Namespaces, s.Database.Namespaces)
 	if len(migrators) == 0 {
-		log.Info("No differences found")
-		return
+		log.Info("no differences found")
+		return nil
 	}
 
 	for _, migrator := range migrators {
 		actions := migrator.GetActions()
 		log.Info(migrator.String())
 		for _, action := range actions {
-			log.Infof("Action: %s", action)
+			log.Infof("action: %s", action)
 		}
 	}
-	return
+	return nil
 }
