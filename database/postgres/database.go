@@ -189,7 +189,7 @@ func (db *database) getColumns(namespace, table string) ([]*objects.Column, erro
 	columns := []*objects.Column{}
 	for rows.Next() {
 		var (
-			columnDefault                    *string = nil
+			columnDefault                    string
 			columnDefaultRef                 sql.NullString
 			characterMaximumLengthRef        sql.NullInt64
 			columnName, dataType, isNullable string
@@ -198,7 +198,9 @@ func (db *database) getColumns(namespace, table string) ([]*objects.Column, erro
 		rows.Scan(&columnName, &dataType, &columnDefaultRef, &isNullable, &characterMaximumLengthRef)
 
 		if columnDefaultRef.Valid {
-			columnDefault = &columnDefaultRef.String
+			columnDefault = strings.Replace(columnDefaultRef.String, "::"+dataType, "", -1)
+		} else {
+			columnDefault = ""
 		}
 
 		columns = append(columns, &objects.Column{

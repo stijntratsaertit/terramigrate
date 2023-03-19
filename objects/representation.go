@@ -14,10 +14,19 @@ func (s *Sequence) String() string {
 }
 
 func (c *Column) String() string {
-	if c.MaxLength > 0 {
-		return fmt.Sprintf("%s %s(%d)", c.Name, c.Type, c.MaxLength)
+	nullable := "NULL"
+	defaulted := ""
+
+	if !c.Nullable {
+		nullable = "NOT " + nullable
 	}
-	return fmt.Sprintf("%s %s", c.Name, c.Type)
+	if c.Default != "" {
+		defaulted = fmt.Sprintf("DEFAULT %s", c.Default)
+	}
+	if c.MaxLength > 0 {
+		return fmt.Sprintf("%s %s(%d) %s %s", c.Name, c.Type, c.MaxLength, nullable, defaulted)
+	}
+	return fmt.Sprintf("%s %s %s %s", c.Name, c.Type, nullable, defaulted)
 }
 
 func (c *Constraint) String() string {

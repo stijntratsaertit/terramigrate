@@ -65,7 +65,7 @@ func (c *Column) Valid() error {
 	if strings.ToUpper(c.Type) != "CHARACTER VARYING" && c.MaxLength > 0 {
 		return fmt.Errorf("column %s is of type %s but has a max length", c.Name, c.Type)
 	}
-	if !c.Nullable && c.Default == nil && !c.IsPrimaryKey {
+	if !c.Nullable && c.Default == "" && !c.IsPrimaryKey {
 		return fmt.Errorf("column %s is nullable and has no default value", c.Name)
 	}
 	return nil

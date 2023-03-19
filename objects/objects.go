@@ -24,12 +24,12 @@ type Table struct {
 }
 
 type Column struct {
-	Name         string  `yaml:"name"`
-	Type         string  `yaml:"type"`
-	MaxLength    int     `yaml:"max_length"`
-	Nullable     bool    `yaml:"nullable"`
-	Default      *string `yaml:"default"`
-	IsPrimaryKey bool    `yaml:"primary_key"`
+	Name         string `yaml:"name"`
+	Type         string `yaml:"type"`
+	MaxLength    int    `yaml:"max_length"`
+	Nullable     bool   `yaml:"nullable"`
+	Default      string `yaml:"default"`
+	IsPrimaryKey bool   `yaml:"primary_key"`
 }
 
 type ConstraintType string
