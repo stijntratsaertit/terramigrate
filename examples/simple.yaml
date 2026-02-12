@@ -1,0 +1,38 @@
+namespaces:
+  - name: public
+    tables:
+      - name: users
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('users_id_seq')"
+            primary_key: true
+          - name: email
+            type: CHARACTER VARYING
+            max_length: 255
+            nullable: false
+            default: "''"
+          - name: name
+            type: CHARACTER VARYING
+            max_length: 100
+            nullable: true
+          - name: created_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+        constraints:
+          - name: users_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: users_email_unique
+            type: UNIQUE
+            targets: [email]
+        indices:
+          - name: idx_users_email
+            unique: true
+            algorithm: btree
+            columns: [email]
+    sequences:
+      - name: users_id_seq
+        type: bigint

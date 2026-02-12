@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
 	"stijntratsaertit/terramigrate/database/generic"
-	"stijntratsaertit/terramigrate/state"
+	"stijntratsaertit/terramigrate/migration"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -10,19 +14,19 @@ import (
 )
 
 func init() {
-	applyCmd.Flags().StringVar(&applyFile, "file", "./db.yaml", "The path to the state to apply")
-	applyCmd.Flags().BoolVar(&applyForce, "force", false, "The path to the state to apply")
+	applyCmd.Flags().BoolVar(&applyAutoApprove, "auto-approve", false, "Skip interactive confirmation (for CI)")
+	applyCmd.Flags().StringVar(&applyMigrationsDir, "migrations-dir", "./migrations", "The migrations directory")
 	rootCmd.AddCommand(applyCmd)
 }
 
 var (
-	applyFile  string
-	applyForce bool
+	applyAutoApprove  bool
+	applyMigrationsDir string
 )
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
-	Short: "Apply the state",
+	Short: "Apply pending migrations",
 	RunE:  apply,
 }
 
@@ -32,30 +36,48 @@ func apply(cmd *cobra.Command, args []string) error {
 		log.Errorf("could not connect to database: %v", err)
 		return err
 	}
-	s := db.GetState()
 
-	req, err := state.LoadYAML(applyFile)
+	pending, err := migration.GetPendingMigrations(db, applyMigrationsDir)
 	if err != nil {
 		return err
 	}
 
-	for _, namespace := range req.Namespaces {
-		if err := namespace.Valid(); err != nil {
-			return err
-		}
-	}
-
-	migrators := state.Compare(req.Namespaces, s.Database.Namespaces)
-	if len(migrators) == 0 {
-		log.Info("no differences found")
+	if len(pending) == 0 {
+		fmt.Println("No pending migrations to apply.")
 		return nil
 	}
 
-	for _, migrator := range migrators {
-		log.Infof("difference found: %s", migrator.String())
-		if err := db.ExecuteTransaction(migrator); err != nil {
-			return err
+	fmt.Printf("Pending migrations (%d):\n\n", len(pending))
+	for _, m := range pending {
+		fmt.Printf("  %s\n", m.DirName())
+		for _, line := range strings.Split(m.UpSQL, "\n") {
+			if strings.TrimSpace(line) != "" {
+				fmt.Printf("    %s\n", line)
+			}
+		}
+		fmt.Println()
+	}
+
+	if !applyAutoApprove {
+		fmt.Print("Proceed? [y/N]: ")
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer != "y" && answer != "yes" {
+			fmt.Println("Aborted.")
+			return nil
 		}
 	}
+
+	for _, m := range pending {
+		fmt.Printf("Applying %s... ", m.DirName())
+		if err := migration.ApplyMigration(db, m); err != nil {
+			fmt.Println("FAILED")
+			return err
+		}
+		fmt.Println("OK")
+	}
+
+	fmt.Printf("\nSuccessfully applied %d migration(s).\n", len(pending))
 	return nil
 }

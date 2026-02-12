@@ -1,0 +1,157 @@
+namespaces:
+  - name: public
+    tables:
+      - name: users
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('users_id_seq')"
+            primary_key: true
+          - name: email
+            type: CHARACTER VARYING
+            max_length: 255
+            nullable: false
+            default: "''"
+          - name: password_hash
+            type: CHARACTER VARYING
+            max_length: 128
+            nullable: false
+            default: "''"
+          - name: display_name
+            type: CHARACTER VARYING
+            max_length: 100
+            nullable: true
+          - name: is_active
+            type: BOOLEAN
+            nullable: false
+            default: "true"
+          - name: created_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+          - name: updated_at
+            type: TIMESTAMP
+            nullable: true
+        constraints:
+          - name: users_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: users_email_unique
+            type: UNIQUE
+            targets: [email]
+        indices:
+          - name: idx_users_email
+            unique: true
+            algorithm: btree
+            columns: [email]
+          - name: idx_users_active
+            unique: false
+            algorithm: btree
+            columns: [is_active]
+
+      - name: posts
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('posts_id_seq')"
+            primary_key: true
+          - name: author_id
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: title
+            type: CHARACTER VARYING
+            max_length: 255
+            nullable: false
+            default: "''"
+          - name: body
+            type: TEXT
+            nullable: true
+          - name: published
+            type: BOOLEAN
+            nullable: false
+            default: "false"
+          - name: created_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+        constraints:
+          - name: posts_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: posts_author_fk
+            type: FOREIGN KEY
+            targets: [author_id]
+            reference:
+              table: users
+              columns: [id]
+            on_delete: CASCADE
+            on_update: NO ACTION
+        indices:
+          - name: idx_posts_author
+            unique: false
+            algorithm: btree
+            columns: [author_id]
+          - name: idx_posts_published
+            unique: false
+            algorithm: btree
+            columns: [published, created_at]
+
+      - name: comments
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('comments_id_seq')"
+            primary_key: true
+          - name: post_id
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: user_id
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: body
+            type: TEXT
+            nullable: false
+            default: "''"
+          - name: created_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+        constraints:
+          - name: comments_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: comments_post_fk
+            type: FOREIGN KEY
+            targets: [post_id]
+            reference:
+              table: posts
+              columns: [id]
+            on_delete: CASCADE
+            on_update: NO ACTION
+          - name: comments_user_fk
+            type: FOREIGN KEY
+            targets: [user_id]
+            reference:
+              table: users
+              columns: [id]
+            on_delete: CASCADE
+            on_update: NO ACTION
+        indices:
+          - name: idx_comments_post
+            unique: false
+            algorithm: btree
+            columns: [post_id]
+
+    sequences:
+      - name: users_id_seq
+        type: bigint
+      - name: posts_id_seq
+        type: bigint
+      - name: comments_id_seq
+        type: bigint

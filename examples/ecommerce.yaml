@@ -1,0 +1,233 @@
+namespaces:
+  - name: public
+    tables:
+      - name: customers
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('customers_id_seq')"
+            primary_key: true
+          - name: email
+            type: CHARACTER VARYING
+            max_length: 255
+            nullable: false
+            default: "''"
+          - name: name
+            type: CHARACTER VARYING
+            max_length: 200
+            nullable: false
+            default: "''"
+          - name: created_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+        constraints:
+          - name: customers_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: customers_email_unique
+            type: UNIQUE
+            targets: [email]
+
+      - name: products
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('products_id_seq')"
+            primary_key: true
+          - name: sku
+            type: CHARACTER VARYING
+            max_length: 50
+            nullable: false
+            default: "''"
+          - name: name
+            type: CHARACTER VARYING
+            max_length: 255
+            nullable: false
+            default: "''"
+          - name: description
+            type: TEXT
+            nullable: true
+          - name: price_cents
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: stock
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: is_available
+            type: BOOLEAN
+            nullable: false
+            default: "true"
+        constraints:
+          - name: products_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: products_sku_unique
+            type: UNIQUE
+            targets: [sku]
+          - name: products_price_check
+            type: CHECK
+            targets: [price_cents]
+        indices:
+          - name: idx_products_sku
+            unique: true
+            algorithm: btree
+            columns: [sku]
+          - name: idx_products_available
+            unique: false
+            algorithm: btree
+            columns: [is_available]
+
+      - name: orders
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('orders_id_seq')"
+            primary_key: true
+          - name: customer_id
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: status
+            type: CHARACTER VARYING
+            max_length: 20
+            nullable: false
+            default: "'pending'"
+          - name: total_cents
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: created_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+          - name: updated_at
+            type: TIMESTAMP
+            nullable: true
+        constraints:
+          - name: orders_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: orders_customer_fk
+            type: FOREIGN KEY
+            targets: [customer_id]
+            reference:
+              table: customers
+              columns: [id]
+            on_delete: RESTRICT
+            on_update: NO ACTION
+        indices:
+          - name: idx_orders_customer
+            unique: false
+            algorithm: btree
+            columns: [customer_id]
+          - name: idx_orders_status
+            unique: false
+            algorithm: btree
+            columns: [status]
+
+      - name: order_items
+        columns:
+          - name: id
+            type: INTEGER
+            nullable: false
+            default: "nextval('order_items_id_seq')"
+            primary_key: true
+          - name: order_id
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: product_id
+            type: INTEGER
+            nullable: false
+            default: "0"
+          - name: quantity
+            type: INTEGER
+            nullable: false
+            default: "1"
+          - name: unit_price_cents
+            type: INTEGER
+            nullable: false
+            default: "0"
+        constraints:
+          - name: order_items_pkey
+            type: PRIMARY KEY
+            targets: [id]
+          - name: order_items_order_fk
+            type: FOREIGN KEY
+            targets: [order_id]
+            reference:
+              table: orders
+              columns: [id]
+            on_delete: CASCADE
+            on_update: NO ACTION
+          - name: order_items_product_fk
+            type: FOREIGN KEY
+            targets: [product_id]
+            reference:
+              table: products
+              columns: [id]
+            on_delete: RESTRICT
+            on_update: NO ACTION
+        indices:
+          - name: idx_order_items_order
+            unique: false
+            algorithm: btree
+            columns: [order_id]
+
+    sequences:
+      - name: customers_id_seq
+        type: bigint
+      - name: products_id_seq
+        type: bigint
+      - name: orders_id_seq
+        type: bigint
+      - name: order_items_id_seq
+        type: bigint
+
+  - name: analytics
+    tables:
+      - name: page_views
+        columns:
+          - name: id
+            type: BIGINT
+            nullable: false
+            default: "nextval('analytics.page_views_id_seq')"
+            primary_key: true
+          - name: path
+            type: CHARACTER VARYING
+            max_length: 500
+            nullable: false
+            default: "''"
+          - name: referrer
+            type: CHARACTER VARYING
+            max_length: 500
+            nullable: true
+          - name: user_agent
+            type: TEXT
+            nullable: true
+          - name: viewed_at
+            type: TIMESTAMP
+            nullable: false
+            default: "NOW()"
+        constraints:
+          - name: page_views_pkey
+            type: PRIMARY KEY
+            targets: [id]
+        indices:
+          - name: idx_page_views_path
+            unique: false
+            algorithm: btree
+            columns: [path]
+          - name: idx_page_views_date
+            unique: false
+            algorithm: btree
+            columns: [viewed_at]
+    sequences:
+      - name: page_views_id_seq
+        type: bigint

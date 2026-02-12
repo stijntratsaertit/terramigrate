@@ -35,25 +35,25 @@ type Column struct {
 type ConstraintType string
 
 var (
-	ContraintTypePrimaryKey ConstraintType = "PRIMARY KEY"
-	ContraintTypeUnique     ConstraintType = "UNIQUE"
-	ContraintTypeForeignKey ConstraintType = "FOREIGN KEY"
-	ContraintTypeCheck      ConstraintType = "CHECK"
-	ContraintTypeUnknown    ConstraintType = ""
+	ConstraintTypePrimaryKey ConstraintType = "PRIMARY KEY"
+	ConstraintTypeUnique     ConstraintType = "UNIQUE"
+	ConstraintTypeForeignKey ConstraintType = "FOREIGN KEY"
+	ConstraintTypeCheck      ConstraintType = "CHECK"
+	ConstraintTypeUnknown    ConstraintType = ""
 )
 
-func GetContraintTypeFromCode(code string) ConstraintType {
+func GetConstraintTypeFromCode(code string) ConstraintType {
 	switch code {
 	case "c":
-		return ContraintTypeCheck
+		return ConstraintTypeCheck
 	case "f":
-		return ContraintTypeForeignKey
+		return ConstraintTypeForeignKey
 	case "p":
-		return ContraintTypePrimaryKey
+		return ConstraintTypePrimaryKey
 	case "u":
-		return ContraintTypeUnique
+		return ConstraintTypeUnique
 	default:
-		return ContraintTypeUnknown
+		return ConstraintTypeUnknown
 	}
 }
 
@@ -62,31 +62,31 @@ type ConstraintReference struct {
 	Columns []string
 }
 
-type ContraintAction string
+type ConstraintAction string
 
 var (
-	ContraintActionSetNull    ContraintAction = "SET NULL"
-	ContraintActionSetDefault ContraintAction = "SET DEFAULT"
-	ContraintActionCascade    ContraintAction = "CASCADE"
-	ContraintActionRestrict   ContraintAction = "RESTRICT"
-	ContraintActionNoAction   ContraintAction = "NO ACTION"
-	ContraintActionUnknown    ContraintAction = ""
+	ConstraintActionSetNull    ConstraintAction = "SET NULL"
+	ConstraintActionSetDefault ConstraintAction = "SET DEFAULT"
+	ConstraintActionCascade    ConstraintAction = "CASCADE"
+	ConstraintActionRestrict   ConstraintAction = "RESTRICT"
+	ConstraintActionNoAction   ConstraintAction = "NO ACTION"
+	ConstraintActionUnknown    ConstraintAction = ""
 )
 
-func GetContraintActionFromCode(code string) ContraintAction {
+func GetConstraintActionFromCode(code string) ConstraintAction {
 	switch code {
 	case "a":
-		return ContraintActionNoAction
+		return ConstraintActionNoAction
 	case "d":
-		return ContraintActionSetDefault
+		return ConstraintActionSetDefault
 	case "c":
-		return ContraintActionCascade
+		return ConstraintActionCascade
 	case "r":
-		return ContraintActionRestrict
+		return ConstraintActionRestrict
 	case "n":
-		return ContraintActionSetNull
+		return ConstraintActionSetNull
 	default:
-		return ContraintActionUnknown
+		return ConstraintActionUnknown
 	}
 }
 
@@ -95,8 +95,8 @@ type Constraint struct {
 	Type      ConstraintType       `yaml:"type"`
 	Targets   []string             `yaml:"targets"`
 	Reference *ConstraintReference `yaml:"reference"`
-	OnDelete  ContraintAction      `yaml:"on_delete"`
-	OnUpdate  ContraintAction      `yaml:"on_update"`
+	OnDelete  ConstraintAction      `yaml:"on_delete"`
+	OnUpdate  ConstraintAction      `yaml:"on_update"`
 }
 
 type IndexAlgorithm string

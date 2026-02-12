@@ -48,13 +48,12 @@ func (db *database) ExecuteTransaction(migrator *state.Migrator) error {
 
 	for _, query := range migrator.GetActions() {
 		if _, err := tx.Exec(query); err != nil {
-			if err := tx.Rollback(); err != nil {
-				log.Errorf("could not rollback transaction: %v", err)
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Errorf("could not rollback transaction: %v", rbErr)
 			}
 			return fmt.Errorf("could not execute query: %v", err)
-		} else {
-			log.Infof("executed query: %v", query)
 		}
+		log.Infof("executed query: %v", query)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -62,6 +61,84 @@ func (db *database) ExecuteTransaction(migrator *state.Migrator) error {
 	}
 
 	return nil
+}
+
+func (db *database) ExecuteSQL(sqlStr string) error {
+	tx, err := db.connection.Begin()
+	if err != nil {
+		return fmt.Errorf("could not start transaction: %v", err)
+	}
+
+	if _, err := tx.Exec(sqlStr); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			log.Errorf("could not rollback transaction: %v", rbErr)
+		}
+		return fmt.Errorf("could not execute SQL: %v", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %v", err)
+	}
+
+	return nil
+}
+
+func (db *database) EnsureMigrationTable() error {
+	q := `
+		CREATE TABLE IF NOT EXISTS terramigrations (
+			id SERIAL PRIMARY KEY,
+			version VARCHAR(15) NOT NULL UNIQUE,
+			description VARCHAR(255) NOT NULL,
+			applied_at TIMESTAMP NOT NULL DEFAULT NOW(),
+			checksum VARCHAR(64) NOT NULL
+		);
+	`
+	_, err := db.connection.Exec(q)
+	if err != nil {
+		return fmt.Errorf("could not create migration table: %v", err)
+	}
+	return nil
+}
+
+func (db *database) RecordMigration(version, description, checksum string) error {
+	q := `INSERT INTO terramigrations (version, description, checksum) VALUES ($1, $2, $3);`
+	_, err := db.connection.Exec(q, version, description, checksum)
+	if err != nil {
+		return fmt.Errorf("could not record migration %s: %v", version, err)
+	}
+	return nil
+}
+
+func (db *database) RemoveMigration(version string) error {
+	q := `DELETE FROM terramigrations WHERE version = $1;`
+	_, err := db.connection.Exec(q, version)
+	if err != nil {
+		return fmt.Errorf("could not remove migration record %s: %v", version, err)
+	}
+	return nil
+}
+
+func (db *database) GetAppliedMigrations() ([]adapter.AppliedMigration, error) {
+	if err := db.EnsureMigrationTable(); err != nil {
+		return nil, err
+	}
+
+	q := `SELECT version, description, applied_at, checksum FROM terramigrations ORDER BY version ASC;`
+	rows, err := db.connection.Query(q)
+	if err != nil {
+		return nil, fmt.Errorf("could not get applied migrations: %v", err)
+	}
+	defer rows.Close()
+
+	var migrations []adapter.AppliedMigration
+	for rows.Next() {
+		var m adapter.AppliedMigration
+		if err := rows.Scan(&m.Version, &m.Description, &m.AppliedAt, &m.Checksum); err != nil {
+			return nil, fmt.Errorf("could not scan migration row: %v", err)
+		}
+		migrations = append(migrations, m)
+	}
+	return migrations, nil
 }
 
 func (db *database) GetState() *state.State {
@@ -218,7 +295,7 @@ func (db *database) getColumns(namespace, table string) ([]*objects.Column, erro
 func (db *database) getConstraints(namespace, tableName string) ([]*objects.Constraint, error) {
 	q := `
 		SELECT
-			conname AS contraint_name,
+			conname AS constraint_name,
 			contype AS constraint_type,
 			confupdtype AS update_action,
 			confdeltype AS delete_action,
@@ -259,14 +336,14 @@ func (db *database) getConstraints(namespace, tableName string) ([]*objects.Cons
 		rows.Scan(&cName, &cType, &cUpdate, &cDelete, (*pq.StringArray)(&cSourceColumns), &cRefTable, (*pq.StringArray)(&cRefColumns))
 		constraints = append(constraints, &objects.Constraint{
 			Name:    cName,
-			Type:    objects.GetContraintTypeFromCode(cType),
+			Type:    objects.GetConstraintTypeFromCode(cType),
 			Targets: cSourceColumns,
 			Reference: &objects.ConstraintReference{
 				Table:   cRefTable,
 				Columns: cRefColumns,
 			},
-			OnDelete: objects.GetContraintActionFromCode(cDelete),
-			OnUpdate: objects.GetContraintActionFromCode(cUpdate),
+			OnDelete: objects.GetConstraintActionFromCode(cDelete),
+			OnUpdate: objects.GetConstraintActionFromCode(cUpdate),
 		})
 	}
 

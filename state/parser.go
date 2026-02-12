@@ -8,11 +8,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type request struct {
+type Request struct {
 	Namespaces []*objects.Namespace `yaml:"namespaces"`
 }
 
-func LoadYAML(path string) (*request, error) {
+func LoadYAML(path string) (*Request, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("file %s does not exist", path)
 	}
@@ -22,7 +22,7 @@ func LoadYAML(path string) (*request, error) {
 		return nil, fmt.Errorf("could not read file %s: %v", path, err)
 	}
 
-	req := &request{}
+	req := &Request{}
 	err = yaml.Unmarshal(yamlFile, req)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal yaml: %v", err)
@@ -32,7 +32,7 @@ func LoadYAML(path string) (*request, error) {
 }
 
 func (s *State) ExportYAML(path string) error {
-	yamlFile, err := yaml.Marshal(request{Namespaces: s.Database.Namespaces})
+	yamlFile, err := yaml.Marshal(Request{Namespaces: s.Database.Namespaces})
 	if err != nil {
 		return fmt.Errorf("could not marshal yaml: %v", err)
 	}

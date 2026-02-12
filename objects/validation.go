@@ -23,7 +23,6 @@ func (n *Namespace) Valid() error {
 	return nil
 }
 
-// TODO: temp
 func (s *Sequence) Valid() error {
 	if s.Name == "" {
 		return fmt.Errorf("sequence has no name")
@@ -66,7 +65,7 @@ func (c *Column) Valid() error {
 		return fmt.Errorf("column %s is of type %s but has a max length", c.Name, c.Type)
 	}
 	if !c.Nullable && c.Default == "" && !c.IsPrimaryKey {
-		return fmt.Errorf("column %s is nullable and has no default value", c.Name)
+		return fmt.Errorf("column %s is not nullable and has no default value", c.Name)
 	}
 	return nil
 }
